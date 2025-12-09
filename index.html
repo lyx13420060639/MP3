@@ -1,18 +1,113 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>音乐播放页</title>
+    <title>音乐播放页 - 歌词同步</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        audio { width: 300px; }
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; }
+        audio { width: 300px; margin-bottom: 20px; }
+        #lyrics-container {
+            width: 80%;
+            max-height: 300px;
+            margin: 0 auto;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .lyric-line {
+            margin: 10px 0;
+            transition: all 0.3s;
+        }
+        .active {
+            color: red;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
     </style>
 </head>
 <body>
     <h1>搁浅 - 周杰伦</h1>
-    <audio controls>
+    <audio id="audio-player" controls>
         <source src="搁浅 - 周杰伦.mp3" type="audio/mpeg">
         您的浏览器不支持音频播放。
     </audio>
-    <p><a href="https://github.com/lyx13420060639/MP3/blob/main/%E6%90%81%E6%B5%85%20-%20%E5%91%A8%E6%9D%B0%E4%BC%A6.mp3">下载原文件</a></p>
+    <div id="lyrics-container">
+        <p>加载歌词中...</p>
+    </div>
+
+    <script>
+        // 1. 加载歌词文件（文件名需完全匹配）
+        fetch('搁浅 - 周杰伦.lrc')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('歌词文件加载失败');
+                }
+                return response.text();
+            })
+            .then(data => {
+                const lyricsContainer = document.getElementById('lyrics-container');
+                lyricsContainer.innerHTML = ''; // 清空加载提示
+
+                // 解析 LRC 文件（简单版）
+                const lines = data.split('\n');
+                const lyrics = [];
+                lines.forEach(line => {
+                    // 匹配时间轴（格式: [mm:ss.xx]歌词）
+                    const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2})\]/);
+                    if (timeMatch) {
+                        const minutes = parseInt(timeMatch[1]);
+                        const seconds = parseInt(timeMatch[2]);
+                        const milliseconds = parseInt(timeMatch[3]);
+                        const timeInSeconds = minutes * 60 + seconds + milliseconds / 100;
+                        const text = line.replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '').trim();
+                        lyrics.push({ time: timeInSeconds, text });
+                    }
+                });
+
+                // 2. 显示歌词到页面
+                lyrics.forEach((lyric, index) => {
+                    const p = document.createElement('p');
+                    p.className = 'lyric-line';
+                    p.dataset.index = index;
+                    p.textContent = lyric.text;
+                    lyricsContainer.appendChild(p);
+                });
+
+                // 3. 监听音频播放时间，同步歌词
+                const audioPlayer = document.getElementById('audio-player');
+                audioPlayer.addEventListener('timeupdate', () => {
+                    const currentTime = audioPlayer.currentTime;
+                    let activeLine = -1;
+
+                    // 找到当前时间对应的歌词行
+                    for (let i = 0; i < lyrics.length; i++) {
+                        if (currentTime >= lyrics[i].time) {
+                            activeLine = i;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // 更新高亮歌词
+                    const allLines = document.querySelectorAll('.lyric-line');
+                    allLines.forEach((line, index) => {
+                        line.classList.toggle('active', index === activeLine);
+                        // 滚动到当前歌词（可选）
+                        if (index === activeLine && activeLine !== -1) {
+                            line.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                            });
+                        }
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('错误:', error);
+                document.getElementById('lyrics-container').innerHTML = 
+                    '<p style="color:red;">歌词加载失败，请检查文件名是否正确（需完全匹配，包括空格和符号）。</p>';
+            });
+    </script>
 </body>
 </html>
