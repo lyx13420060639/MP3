@@ -91,91 +91,84 @@
             
             // 使用相对路径加载歌词（GitHub Pages 适配）
             fetch('./搁浅 - 周杰伦.lrc')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP 错误！状态码: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(data => {
-                    if (!data.trim()) {
-                        throw new Error("歌词文件为空！");
-                    }
-                    
-                    // 解析 LRC 文件
-                    const lines = data.split('\n');
-                    const lyrics = [];
-                    
-                    lines.forEach(line => {
-                        const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
-                        if (timeMatch) {
-                            const minutes = parseInt(timeMatch[1]);
-                            const seconds = parseInt(timeMatch[2]);
-                            const milliseconds = parseInt(timeMatch[3]);
-                            const text = timeMatch[4].trim();
-                            
-                            if (text) { // 跳过空歌词
-                                const timeInSeconds = minutes * 60 + seconds + milliseconds / 100;
-                                lyrics.push({ time: timeInSeconds, text });
-                            }
-                        }
-                    });
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP 错误！状态码: ${response.status}`);
+        return response.text();
+    })
+    .then(data => {
+        const lines = data.split('\n');
+        const lyrics = [];
+        
+        lines.forEach(line => {
+            // 修改正则表达式，支持两位或三位小数
+            const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/);
+            if (timeMatch) {
+                const minutes = parseInt(timeMatch[1]);
+                const seconds = parseInt(timeMatch[2]);
+                const milliseconds = parseInt(timeMatch[3].padEnd(3, '0')); // 补齐三位（如 "50" → "500"）
+                const text = timeMatch[4].trim();
+                
+                if (text) {
+                    const timeInSeconds = minutes * 60 + seconds + milliseconds / 1000;
+                    lyrics.push({ time: timeInSeconds, text });
+                }
+            }
+        });
 
-                    if (lyrics.length === 0) {
-                        throw new Error("未找到有效歌词行！");
-                    }
+        if (lyrics.length === 0) {
+            throw new Error("未找到有效歌词行！请检查 .lrc 文件格式（时间标签应为 [mm:ss.xx] 或 [mm:ss.xxx]）。");
+        }
 
-                    // 显示歌词
-                    lyricsContainer.innerHTML = '';
-                    lyrics.forEach(lyric => {
-                        const p = document.createElement('p');
-                        p.className = 'lyric-line';
-                        p.dataset.time = lyric.time;
-                        p.textContent = lyric.text;
-                        lyricsContainer.appendChild(p);
-                    });
+        // 显示歌词并绑定时间同步逻辑（保持原代码不变）
+        lyricsContainer.innerHTML = '';
+        lyrics.forEach(lyric => {
+            const p = document.createElement('p');
+            p.className = 'lyric-line';
+            p.dataset.time = lyric.time;
+            p.textContent = lyric.text;
+            lyricsContainer.appendChild(p);
+        });
 
-                    // 歌词同步高亮
-                    audioPlayer.addEventListener('timeupdate', () => {
-                        const currentTime = audioPlayer.currentTime;
-                        const lyricLines = document.querySelectorAll('.lyric-line');
-                        
-                        let activeLine = null;
-                        lyricLines.forEach(line => {
-                            const lineTime = parseFloat(line.dataset.time);
-                            if (currentTime >= lineTime) {
-                                activeLine = line;
-                            }
-                        });
+        audioPlayer.addEventListener('timeupdate', () => {
+            const currentTime = audioPlayer.currentTime;
+            const lyricLines = document.querySelectorAll('.lyric-line');
+            
+            let activeLine = null;
+            lyricLines.forEach(line => {
+                const lineTime = parseFloat(line.dataset.time);
+                if (currentTime >= lineTime) {
+                    activeLine = line;
+                }
+            });
 
-                        // 清除所有高亮
-                        lyricLines.forEach(line => line.classList.remove('active'));
-                        
-                        // 高亮当前歌词
-                        if (activeLine) {
-                            activeLine.classList.add('active');
-                            activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('错误:', error);
-                    lyricsContainer.innerHTML = `
-                        <div class="error">
-                            <h3>歌词加载失败</h3>
-                            <p>${error.message}</p>
-                            <p>请检查：</p>
-                            <ul>
-                                <li>1. 文件是否已上传到 GitHub 仓库</li>
-                                <li>2. 文件名是否完全匹配（包括大小写）</li>
-                                <li>3. 文件内容是否符合 <a href="https://en.wikipedia.org/wiki/LRC_(file_format)" target="_blank">LRC 格式</a></li>
-                            </ul>
-                        </div>
+            lyricLines.forEach(line => line.classList.remove('active'));
+            if (activeLine) {
+                activeLine.classList.add('active');
+                activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    })
+    .catch(error => {
+        console.error('错误:', error);
+        lyricsContainer.innerHTML = `
+            <div class="error">
+                <h3>歌词加载失败</h3>
+                <p>${error.message}</p>
+                <p>请检查：</p>
+                <ul>
+                    <li>1. 文件是否已上传到 GitHub 仓库</li>
+                    <li>2. 文件名是否完全匹配（包括大小写和空格）</li>
+                    <li>3. 文件内容是否符合 LRC 格式（时间标签应为 [mm:ss.xx] 或 [mm:ss.xxx]）</li>
+                </ul>
+            </div>
+        `;
+    });
                     `;
                 });
         });
     </script>
 </body>
 </html>
+
 
 
